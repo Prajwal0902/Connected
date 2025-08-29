@@ -1,0 +1,851 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chat & Share | Live Chat and Location Sharing</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+    <style>
+        /* ===== CSS VARIABLES ===== */
+        :root {
+            --primary: #6e8efb;
+            --secondary: #a777e3;
+            --success: #28a745;
+            --danger: #dc3545;
+            --warning: #ffc107;
+            --info: #17a2b8;
+            --light: #f8f9fa;
+            --dark: #343a40;
+            --gray: #6c757d;
+            --white: #ffffff;
+            --bg-gradient: linear-gradient(135deg, #6e8efb, #a777e3);
+            --card-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+            --transition: all 0.3s ease;
+        }
+
+        /* ===== BASE STYLES ===== */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        body {
+            background: var(--bg-gradient);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+            color: var(--dark);
+            line-height: 1.6;
+        }
+
+        /* ===== LAYOUT ===== */
+        .container {
+            width: 100%;
+            max-width: 1200px;
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 20px;
+            box-shadow: var(--card-shadow);
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            height: 95vh;
+        }
+
+        header, footer {
+            padding: 20px;
+            background: linear-gradient(90deg, var(--primary), var(--secondary));
+            color: var(--white);
+            text-align: center;
+        }
+
+        .main-content {
+            display: flex;
+            flex: 1;
+            overflow: hidden;
+        }
+
+        /* ===== SIDEBAR ===== */
+        .sidebar {
+            width: 280px;
+            background: var(--light);
+            padding: 20px;
+            border-right: 1px solid rgba(0, 0, 0, 0.1);
+            display: flex;
+            flex-direction: column;
+            transition: var(--transition);
+        }
+
+        .user-profile {
+            display: flex;
+            align-items: center;
+            margin-bottom: 25px;
+            padding-bottom: 15px;
+            border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+        }
+
+        .avatar {
+            width: 55px;
+            height: 55px;
+            border-radius: 50%;
+            background: linear-gradient(45deg, var(--primary), var(--secondary));
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--white);
+            font-size: 22px;
+            font-weight: bold;
+            margin-right: 12px;
+        }
+
+        .user-info {
+            flex: 1;
+        }
+
+        .username {
+            font-weight: bold;
+            font-size: 17px;
+            margin-bottom: 4px;
+        }
+
+        .status {
+            font-size: 13px;
+            color: var(--success);
+            display: flex;
+            align-items: center;
+        }
+
+        .status::before {
+            content: "";
+            width: 8px;
+            height: 8px;
+            background: var(--success);
+            border-radius: 50%;
+            margin-right: 6px;
+        }
+
+        .nav-item {
+            display: flex;
+            align-items: center;
+            padding: 14px 16px;
+            border-radius: 12px;
+            margin-bottom: 8px;
+            cursor: pointer;
+            transition: var(--transition);
+            color: var(--dark);
+            text-decoration: none;
+        }
+
+        .nav-item.active {
+            background: var(--primary);
+            color: var(--white);
+        }
+
+        .nav-item:hover:not(.active) {
+            background: rgba(110, 142, 251, 0.1);
+        }
+
+        .nav-item i {
+            margin-right: 12px;
+            font-size: 20px;
+            width: 24px;
+            text-align: center;
+        }
+
+        /* ===== CHAT CONTAINER ===== */
+        .chat-container {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .chat-header {
+            padding: 18px 24px;
+            border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background: var(--white);
+        }
+
+        .chat-title {
+            font-size: 20px;
+            font-weight: bold;
+        }
+
+        .chat-actions button {
+            background: var(--primary);
+            color: var(--white);
+            border: none;
+            padding: 10px 18px;
+            border-radius: 20px;
+            cursor: pointer;
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+            transition: var(--transition);
+        }
+
+        .chat-actions button:hover {
+            background: #5a7df9;
+            transform: translateY(-2px);
+        }
+
+        .chat-actions button i {
+            margin-right: 6px;
+        }
+
+        /* ===== MESSAGES ===== */
+        .messages {
+            flex: 1;
+            padding: 24px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            background: rgba(248, 249, 250, 0.5);
+        }
+
+        .message {
+            max-width: 75%;
+            padding: 14px 18px;
+            border-radius: 18px;
+            margin-bottom: 18px;
+            position: relative;
+            animation: fadeIn 0.4s;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(12px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .message.incoming {
+            background: var(--white);
+            align-self: flex-start;
+            border-bottom-left-radius: 5px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+        }
+
+        .message.outgoing {
+            background: var(--primary);
+            color: var(--white);
+            align-self: flex-end;
+            border-bottom-right-radius: 5px;
+            box-shadow: 0 4px 12px rgba(110, 142, 251, 0.3);
+        }
+
+        .message-sender {
+            font-weight: bold;
+            font-size: 14px;
+            margin-bottom: 6px;
+        }
+
+        .message-time {
+            font-size: 12px;
+            opacity: 0.8;
+            text-align: right;
+            margin-top: 6px;
+        }
+
+        .location-message {
+            background: #e6f7ff;
+            border: 1px solid #91d5ff;
+            border-radius: 18px;
+            padding: 16px;
+            margin-bottom: 18px;
+            max-width: 75%;
+            align-self: flex-start;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+        }
+
+        .location-title {
+            font-weight: bold;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            color: var(--info);
+        }
+
+        .location-title i {
+            margin-right: 8px;
+        }
+
+        .map-preview {
+            height: 180px;
+            background: #ddd;
+            border-radius: 12px;
+            margin: 12px 0;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .map-preview .leaflet-container {
+            border-radius: 12px;
+            height: 100%;
+            width: 100%;
+        }
+
+        .location-actions {
+            display: flex;
+            justify-content: flex-end;
+            gap: 8px;
+        }
+
+        .location-actions button {
+            background: var(--info);
+            color: var(--white);
+            border: none;
+            padding: 6px 12px;
+            border-radius: 15px;
+            font-size: 13px;
+            cursor: pointer;
+            transition: var(--transition);
+        }
+
+        .location-actions button:hover {
+            background: #138496;
+        }
+
+        /* ===== INPUT AREA ===== */
+        .input-area {
+            padding: 18px 24px;
+            border-top: 1px solid rgba(0, 0, 0, 0.1);
+            display: flex;
+            align-items: center;
+            background: var(--white);
+        }
+
+        .message-input {
+            flex: 1;
+            padding: 14px 18px;
+            border: 1px solid rgba(0, 0, 0, 0.1);
+            border-radius: 24px;
+            outline: none;
+            font-size: 16px;
+            transition: var(--transition);
+        }
+
+        .message-input:focus {
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(110, 142, 251, 0.2);
+        }
+
+        .action-button {
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            margin-left: 12px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+            transition: var(--transition);
+            border: none;
+            color: var(--white);
+        }
+
+        .action-button:hover {
+            transform: scale(1.08);
+        }
+
+        .emoji-button {
+            background: var(--warning);
+        }
+
+        .emoji-button:hover {
+            background: #e0a800;
+        }
+
+        .location-button {
+            background: var(--success);
+        }
+
+        .location-button:hover {
+            background: #218838;
+        }
+
+        .send-button {
+            background: var(--primary);
+        }
+
+        .send-button:hover {
+            background: #5a7df9;
+        }
+
+        /* ===== FOOTER ===== */
+        footer {
+            font-size: 14px;
+            padding: 16px;
+        }
+
+        /* ===== RESPONSIVE STYLES ===== */
+        @media (max-width: 992px) {
+            .sidebar {
+                width: 230px;
+            }
+            
+            .message {
+                max-width: 85%;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                height: 100vh;
+                border-radius: 0;
+            }
+            
+            body {
+                padding: 0;
+            }
+            
+            .main-content {
+                flex-direction: column;
+            }
+            
+            .sidebar {
+                width: 100%;
+                border-right: none;
+                border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+                padding: 15px;
+                max-height: 180px;
+                overflow-y: auto;
+            }
+            
+            .user-profile {
+                margin-bottom: 15px;
+            }
+            
+            .nav-items {
+                display: flex;
+                overflow-x: auto;
+                padding-bottom: 5px;
+                gap: 8px;
+            }
+            
+            .nav-item {
+                flex-shrink: 0;
+                margin-bottom: 0;
+            }
+            
+            .message {
+                max-width: 90%;
+            }
+            
+            .map-preview {
+                height: 150px;
+            }
+        }
+
+        @media (max-width: 576px) {
+            .chat-header {
+                padding: 14px 16px;
+            }
+            
+            .messages {
+                padding: 16px;
+            }
+            
+            .input-area {
+                padding: 14px 16px;
+            }
+            
+            .action-button {
+                width: 45px;
+                height: 45px;
+            }
+            
+            .location-message {
+                max-width: 90%;
+            }
+            
+            .chat-actions button {
+                padding: 8px 14px;
+                font-size: 13px;
+            }
+        }
+
+        /* ===== UTILITY CLASSES ===== */
+        .hidden {
+            display: none !important;
+        }
+
+        .text-center {
+            text-align: center;
+        }
+
+        .mt-1 {
+            margin-top: 8px;
+        }
+
+        .mt-2 {
+            margin-top: 16px;
+        }
+
+        .mb-1 {
+            margin-bottom: 8px;
+        }
+
+        .mb-2 {
+            margin-bottom: 16px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1><i class="fas fa-comment-dots"></i> Chat & Share</h1>
+            <p>Real-time messaging and location sharing</p>
+        </header>
+        
+        <div class="main-content">
+            <aside class="sidebar">
+                <div class="user-profile">
+                    <div class="avatar">U</div>
+                    <div class="user-info">
+                        <div class="username">User123</div>
+                        <div class="status">Online</div>
+                    </div>
+                </div>
+                
+                <div class="nav-items">
+                    <a href="#" class="nav-item active">
+                        <i class="fas fa-comment"></i> General Chat
+                    </a>
+                    <a href="#" class="nav-item">
+                        <i class="fas fa-user-friends"></i> Friends
+                    </a>
+                    <a href="#" class="nav-item">
+                        <i class="fas fa-map-marker-alt"></i> Location Sharing
+                    </a>
+                    <a href="#" class="nav-item">
+                        <i class="fas fa-users"></i> Groups
+                    </a>
+                    <a href="#" class="nav-item">
+                        <i class="fas fa-cog"></i> Settings
+                    </a>
+                </div>
+            </aside>
+            
+            <main class="chat-container">
+                <div class="chat-header">
+                    <div class="chat-title">General Chat</div>
+                    <div class="chat-actions">
+                        <button><i class="fas fa-video"></i> Start Call</button>
+                    </div>
+                </div>
+                
+                <div class="messages" id="messages">
+                    <div class="message incoming">
+                        <div class="message-sender">Alice</div>
+                        <div class="message-text">Hey everyone! How's it going?</div>
+                        <div class="message-time">10:05 AM</div>
+                    </div>
+                    
+                    <div class="message outgoing">
+                        <div class="message-sender">You</div>
+                        <div class="message-text">Pretty good! Just working on this new chat app 😊</div>
+                        <div class="message-time">10:07 AM</div>
+                    </div>
+                    
+                    <div class="message incoming">
+                        <div class="message-sender">Bob</div>
+                        <div class="message-text">That's cool! Can we share locations with this?</div>
+                        <div class="message-time">10:09 AM</div>
+                    </div>
+                    
+                    <div class="location-message">
+                        <div class="location-title"><i class="fas fa-map-marker-alt"></i> Alice shared her location</div>
+                        <div class="map-preview" id="alice-map"></div>
+                        <div class="location-actions">
+                            <button>View Larger</button>
+                            <button>Navigate</button>
+                        </div>
+                    </div>
+                    
+                    <div class="message incoming">
+                        <div class="message-sender">Charlie</div>
+                        <div class="message-text">Wow, that's a nice feature! I'll share mine too</div>
+                        <div class="message-time">10:12 AM</div>
+                    </div>
+                </div>
+                
+                <div class="input-area">
+                    <input type="text" class="message-input" placeholder="Type a message..." id="message-input">
+                    <button class="action-button emoji-button"><i class="far fa-smile"></i></button>
+                    <button class="action-button location-button"><i class="fas fa-location-arrow"></i></button>
+                    <button class="action-button send-button" id="send-button"><i class="fas fa-paper-plane"></i></button>
+                </div>
+            </main>
+        </div>
+        
+        <footer>
+            <p>&copy; 2023 Chat & Share App | Live location sharing enabled</p>
+        </footer>
+    </div>
+
+    <!-- Leaflet JS for maps -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    
+    <script>
+        // ===== APPLICATION STATE =====
+        const state = {
+            users: [
+                { id: 1, name: "You", avatar: "U", online: true },
+                { id: 2, name: "Alice", avatar: "A", online: true },
+                { id: 3, name: "Bob", avatar: "B", online: true },
+                { id: 4, name: "Charlie", avatar: "C", online: true }
+            ],
+            messages: [],
+            currentUser: null,
+            mapInitialized: false
+        };
+
+        // ===== DOM ELEMENTS =====
+        const messagesContainer = document.getElementById('messages');
+        const messageInput = document.getElementById('message-input');
+        const sendButton = document.getElementById('send-button');
+        const aliceMap = document.getElementById('alice-map');
+
+        // ===== INITIALIZATION =====
+        document.addEventListener('DOMContentLoaded', function() {
+            // Set current user
+            state.currentUser = state.users[0];
+            
+            // Initialize map if not already initialized
+            if (!state.mapInitialized) {
+                initMap(aliceMap, 37.7749, -122.4194, "Alice's Location");
+                state.mapInitialized = true;
+            }
+            
+            // Load messages from localStorage
+            loadMessages();
+            
+            // Set up event listeners
+            setupEventListeners();
+            
+            // Simulate receiving messages
+            simulateIncomingMessages();
+        });
+
+        // ===== MAP FUNCTIONS =====
+        function initMap(containerElement, lat, lng, title) {
+            const map = L.map(containerElement).setView([lat, lng], 13);
+            
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+            }).addTo(map);
+            
+            L.marker([lat, lng]).addTo(map)
+                .bindPopup(title)
+                .openPopup();
+                
+            return map;
+        }
+
+        // ===== MESSAGE FUNCTIONS =====
+        function addMessage(sender, text, time, type = 'text', locationData = null) {
+            const message = {
+                id: Date.now(),
+                sender,
+                text,
+                time,
+                type,
+                locationData
+            };
+            
+            state.messages.push(message);
+            saveMessages();
+            renderMessage(message);
+        }
+
+        function renderMessage(message) {
+            let messageElement;
+            
+            if (message.type === 'location') {
+                messageElement = document.createElement('div');
+                messageElement.className = 'location-message';
+                messageElement.innerHTML = `
+                    <div class="location-title"><i class="fas fa-map-marker-alt"></i> ${message.sender} shared location</div>
+                    <div class="map-preview" id="map-${message.id}"></div>
+                    <div class="location-actions">
+                        <button>View Larger</button>
+                        <button>Navigate</button>
+                    </div>
+                `;
+                
+                // Render the map after the element is added to the DOM
+                setTimeout(() => {
+                    const mapContainer = document.getElementById(`map-${message.id}`);
+                    if (mapContainer) {
+                        initMap(mapContainer, message.locationData.lat, message.locationData.lng, `${message.sender}'s Location`);
+                    }
+                }, 100);
+            } else {
+                const isOutgoing = message.sender === 'You';
+                messageElement = document.createElement('div');
+                messageElement.className = `message ${isOutgoing ? 'outgoing' : 'incoming'}`;
+                messageElement.innerHTML = `
+                    <div class="message-sender">${message.sender}</div>
+                    <div class="message-text">${message.text}</div>
+                    <div class="message-time">${message.time}</div>
+                `;
+            }
+            
+            messagesContainer.appendChild(messageElement);
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+        }
+
+        function loadMessages() {
+            const savedMessages = localStorage.getItem('chatMessages');
+            if (savedMessages) {
+                state.messages = JSON.parse(savedMessages);
+                state.messages.forEach(message => renderMessage(message));
+            } else {
+                // Load sample messages if none exist
+                loadSampleMessages();
+            }
+        }
+
+        function loadSampleMessages() {
+            const sampleMessages = [
+                {
+                    sender: 'Alice',
+                    text: 'Hey everyone! How\'s it going?',
+                    time: '10:05 AM',
+                    type: 'text'
+                },
+                {
+                    sender: 'You',
+                    text: 'Pretty good! Just working on this new chat app 😊',
+                    time: '10:07 AM',
+                    type: 'text'
+                },
+                {
+                    sender: 'Bob',
+                    text: 'That\'s cool! Can we share locations with this?',
+                    time: '10:09 AM',
+                    type: 'text'
+                },
+                {
+                    sender: 'Alice',
+                    text: '',
+                    time: '10:10 AM',
+                    type: 'location',
+                    locationData: { lat: 37.7749, lng: -122.4194 }
+                },
+                {
+                    sender: 'Charlie',
+                    text: 'Wow, that\'s a nice feature! I\'ll share mine too',
+                    time: '10:12 AM',
+                    type: 'text'
+                }
+            ];
+            
+            state.messages = sampleMessages;
+            saveMessages();
+            sampleMessages.forEach(message => renderMessage(message));
+        }
+
+        function saveMessages() {
+            localStorage.setItem('chatMessages', JSON.stringify(state.messages));
+        }
+
+        function getCurrentTime() {
+            const now = new Date();
+            return now.getHours() + ':' + (now.getMinutes() < 10 ? '0' : '') + now.getMinutes();
+        }
+
+        // ===== EVENT HANDLERS =====
+        function setupEventListeners() {
+            // Send message on button click
+            sendButton.addEventListener('click', handleSendMessage);
+            
+            // Send message on Enter key
+            messageInput.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') {
+                    handleSendMessage();
+                }
+            });
+            
+            // Location sharing button
+            document.querySelector('.location-button').addEventListener('click', handleShareLocation);
+            
+            // Emoji button (placeholder)
+            document.querySelector('.emoji-button').addEventListener('click', () => {
+                alert('Emoji picker would open here');
+            });
+        }
+
+        function handleSendMessage() {
+            const messageText = messageInput.value.trim();
+            if (messageText) {
+                addMessage('You', messageText, getCurrentTime());
+                messageInput.value = '';
+                
+                // Simulate a reply after a short delay
+                setTimeout(simulateReply, 1000);
+            }
+        }
+
+        function handleShareLocation() {
+            // In a real app, this would get the user's actual location
+            // For demo purposes, we're using a random location near the user
+            const randomOffset = () => (Math.random() - 0.5) * 0.02;
+            const userLat = 37.7749 + randomOffset();
+            const userLng = -122.4194 + randomOffset();
+            
+            addMessage('You', '', getCurrentTime(), 'location', {
+                lat: userLat,
+                lng: userLng
+            });
+            
+            // Simulate location sharing responses
+            setTimeout(() => {
+                addMessage('Bob', 'Thanks for sharing your location!', getCurrentTime());
+            }, 1500);
+            
+            setTimeout(() => {
+                addMessage('Charlie', 'I can see where you are. I\'m not far away!', getCurrentTime());
+            }, 3000);
+        }
+
+        // ===== SIMULATION FUNCTIONS =====
+        function simulateIncomingMessages() {
+            // Simulate occasional incoming messages
+            setInterval(() => {
+                if (Math.random() < 0.2) { // 20% chance every 10 seconds
+                    simulateReply();
+                }
+            }, 10000);
+        }
+
+        function simulateReply() {
+            const senders = ['Alice', 'Bob', 'Charlie'];
+            const replies = [
+                "That's interesting!",
+                "I see what you mean",
+                "Let me think about that",
+                "I agree with you",
+                "We should discuss this more",
+                "What do others think?",
+                "I'm not sure about that",
+                "That makes sense",
+                "Thanks for sharing!",
+                "I'll check that out"
+            ];
+            
+            const randomSender = senders[Math.floor(Math.random() * senders.length)];
+            const randomReply = replies[Math.floor(Math.random() * replies.length)];
+            
+            addMessage(randomSender, randomReply, getCurrentTime());
+        }
+    </script>
+</body>
+</html>
